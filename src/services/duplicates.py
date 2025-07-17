@@ -19,7 +19,7 @@ max_worker = min(multiprocessing.cpu_count(), 16)
 
 # Third-party imports
 from src.core.processing_cache import ProcessingCache
-from src.core.duplicate_detector import DuplicateDetector
+from src.core.duplicate_detector_optimized import OptimizedDuplicateDetector as DuplicateDetector
 from src.utils.util import setup_directories, save_json_report, get_all_image_files
 
 from ..config import logger, log_critical
@@ -65,33 +65,8 @@ def process_duplicates(input_dir: str, output_dir: str, raw_results: dict, confi
         print(f"\nAnalyzing images in: {input_dir}")
         print(f"\nProcessing {len(image_files)} images...")
 
-        # Create a temporary directory for a flat structure of images
-        temp_dir = os.path.join(os.path.dirname(input_dir), '_temp_dup_detection')
-        os.makedirs(temp_dir, exist_ok=True)
-
-        # Copy images to the temporary directory concurrently.
-        path_mapping = {}  # Maps temporary file names to original paths.
-        copy_lock = threading.Lock()
-
-        def copy_file(idx, src_path):
-            try:
-                file_ext = os.path.splitext(src_path)[1]
-                temp_name = f"img_{idx}{file_ext}"
-                temp_path = os.path.join(temp_dir, temp_name)
-                shutil.copy2(src_path, temp_path)
-                with copy_lock:
-                    path_mapping[temp_name] = src_path
-            except Exception as e:
-                logger.error(f"Error copying {src_path}: {str(e)}")
-                
-        with ThreadPoolExecutor(max_workers=max_worker) as executor:
-            copy_futures = [executor.submit(copy_file, idx, src_path)
-                            for idx, src_path in enumerate(image_files)]
-            for _ in as_completed(copy_futures):
-                pass
-
-        # Find duplicate groups using the detector.
-        duplicate_groups = detector.find_duplicates(temp_dir, output_dir)
+        # Find duplicate groups using the optimized detector.
+        duplicate_groups = detector.find_duplicates_optimized(input_dir, 0)
         if not duplicate_groups:
             return results
 

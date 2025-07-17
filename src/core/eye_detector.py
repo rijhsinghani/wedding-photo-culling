@@ -106,10 +106,11 @@ class EyeDetector:
                 return {"status": "error", "confidence": 0, "reason": "Failed to process image"}
 
             # Get Gemini's analysis
-            response = self.gemini_model.generate_content([
-                self.gemini_prompt,
-                genai.upload_file(resized_path)
-            ])
+            with Image.open(resized_path) as img:
+                response = self.gemini_model.generate_content([
+                    self.gemini_prompt,
+                    img
+                ])
             
             # Clean up resized image
             os.remove(resized_path)

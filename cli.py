@@ -22,6 +22,8 @@ from src.services.focus import process_focus
 from src.services.process_all import process_all
 
 from src.utils.util import cleanup_temp_directory
+from src.utils.batch_processor import BatchProcessor
+from src.utils.parallel_processor import OptimizedWorkflow
 
 
 # Initialize colorama and rich console
@@ -224,9 +226,43 @@ def display_operation_summary(operation_name: str, results: Dict):
         console.print(table)
 
 def process_quality_flow(input_dir: str, output_dir: str, raw_results: Dict, config: Dict) -> Dict:
-    """Handle best quality processing flow in correct sequence."""
-    console.print("[cyan]Starting complete quality analysis flow...")
+    """Handle best quality processing flow with optimizations."""
+    console.print("[cyan]Starting optimized quality analysis flow...")
     
+    # Check if batch processing is enabled
+    batch_config = config.get('batch_processing', {})
+    if batch_config.get('enabled', False):
+        console.print("[green]Using batch processing for large dataset...")
+        
+    # Use parallel processing workflow
+    workflow = OptimizedWorkflow(config)
+    
+    try:
+        # Run optimized parallel workflow
+        console.print("\n[yellow]Running optimized parallel analysis...")
+        console.print("[cyan]• Step 1: Duplicate detection")
+        console.print("[cyan]• Step 2: Blur + Focus (parallel)")
+        console.print("[cyan]• Step 3: Eye detection")  
+        console.print("[cyan]• Step 4: Quality assessment")
+        
+        results = workflow.process_quality_flow_parallel(input_dir, output_dir, raw_results)
+        
+        # Display summary
+        console.print("\n[green]✓ Analysis completed successfully!")
+        
+        return results
+        
+    except Exception as e:
+        console.print(f"\n[red]Error during processing: {str(e)}")
+        logger.error(f"Processing error: {str(e)}", exc_info=True)
+        
+        # Fallback to sequential processing
+        console.print("[yellow]Falling back to sequential processing...")
+        return process_quality_flow_sequential(input_dir, output_dir, raw_results, config)
+
+
+def process_quality_flow_sequential(input_dir: str, output_dir: str, raw_results: Dict, config: Dict) -> Dict:
+    """Original sequential processing flow (fallback)."""
     # First process duplicates
     console.print("\n[yellow]Step 1: Processing duplicates...")
     duplicate_results = process_duplicates(input_dir, output_dir, raw_results, config)

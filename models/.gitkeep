@@ -1,0 +1,2 @@
+# This directory will contain ML models after running setup.py
+# Models are downloaded during setup and not stored in the repository

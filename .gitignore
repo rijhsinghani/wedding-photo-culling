@@ -42,27 +42,37 @@ env/
 Thumbs.db
 desktop.ini
 
-# Project specific
+# Project specific - runtime files
 cache/
 temp/
 logs/
 output/
-models/
+temp_converted/
+_temp_dup_detection/
+batch_progress.json
+processing.log
 *.log
-*.h5
-*.pth
-*.caffemodel
-*.yaml
-*.xml
+
+# Models (should be downloaded during setup)
+models/*.h5
+models/*.pth
+models/*.caffemodel
+models/*.yaml
+models/*.xml
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Image files (test data)
-test_images/
-test_output/
+# Test data and outputs
+test/
+test_*/
+test-*/
+*-output/
+*_output/
+
+# Image files (exclude test data)
 *.jpg
 *.jpeg
 *.png
@@ -73,12 +83,22 @@ test_output/
 *.nef
 *.raf
 *.orf
+*.ARW
+*.CR2
+*.NEF
+*.RAF
+*.ORF
+
+# Keep example images if needed
+!docs/examples/*.jpg
+!docs/examples/*.png
 
 # Temporary files
 *.tmp
 *.temp
 *.bak
 *.orig
+*~
 
 # Database
 *.db
@@ -87,6 +107,7 @@ test_output/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+*.ipynb
 
 # Coverage reports
 htmlcov/
@@ -98,7 +119,7 @@ coverage.xml
 # pytest
 .pytest_cache/
 
-# Documentation
+# Documentation build
 docs/_build/
 site/
 
@@ -111,3 +132,17 @@ secrets/
 *.key
 *.pem
 *.cert
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux specific
+.directory
+.Trash-*

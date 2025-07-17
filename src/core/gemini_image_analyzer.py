@@ -170,7 +170,8 @@ class GeminiImageAnalyzer:
                 return None
             
             try:
-                response = self.model.generate_content([self.prompt, genai.upload_file(resized)])
+                with Image.open(resized) as img:
+                    response = self.model.generate_content([self.prompt, img])
                 
                 try:
                     os.remove(resized)
@@ -258,7 +259,8 @@ class GeminiImageAnalyzer:
             Format: PASS|score|reason or FAIL|score|reason
             """
             
-            response = self.model.generate_content([final_prompt, genai.upload_file(resized)])
+            with Image.open(resized) as img:
+                response = self.model.generate_content([final_prompt, img])
             os.remove(resized)
             
             if not response or not response.text:

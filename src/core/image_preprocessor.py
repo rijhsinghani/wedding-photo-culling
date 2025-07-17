@@ -134,10 +134,12 @@ class ImagePreprocessor:
             if not resized:
                 return False, 0, "Failed to process image"
 
-            response = self.model.generate_content([
-                self.venue_prompt,
-                genai.upload_file(resized)
-            ])
+            from PIL import Image
+            with Image.open(resized) as img:
+                response = self.model.generate_content([
+                    self.venue_prompt,
+                    img
+                ])
             
             os.remove(resized)
             

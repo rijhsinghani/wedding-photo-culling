@@ -94,10 +94,12 @@ class FocusDetector:
             if not resized_path:
                 return {"status": "error", "confidence": 0, "reason": "Failed to process image"}
 
-            response = self.gemini_model.generate_content([
-                self.gemini_prompt,
-                genai.upload_file(resized_path)
-            ])
+            from PIL import Image
+            with Image.open(resized_path) as img:
+                response = self.gemini_model.generate_content([
+                    self.gemini_prompt,
+                    img
+                ])
             
             os.remove(resized_path)
             

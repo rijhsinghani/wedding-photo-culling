@@ -34,10 +34,18 @@
     },
     "processing_settings": {
         "max_image_dimension": 2000,
-        "batch_size": 16,
+        "batch_size": 8,
         "max_workers": 4,
-        "use_gpu": true,
-        "memory_limit": 8
+        "use_gpu": false,
+        "memory_limit": 8,
+        "timeout_per_image": 30,
+        "progress_save_interval": 10
+    },
+    "batch_processing": {
+        "enabled": true,
+        "batch_size": 25,
+        "clear_cache_between_batches": true,
+        "save_progress": true
     },
     "image_processing": {
         "raw_processing": {
