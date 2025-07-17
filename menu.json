@@ -1,0 +1,54 @@
+{
+    "main_menu": [
+        {
+            "id": 0,
+            "name": "Exit",
+            "description": "Exit the application"
+        },
+        {
+            "id": 1,
+            "name": "Best Quality Detection",
+            "description": "Identify highest quality photos"
+        },
+        {
+            "id": 2,
+            "name": "Duplicate Detection",
+            "description": "Find similar or duplicate photos"
+        },
+        {
+            "id": 3,
+            "name": "Blurry Image Detection",
+            "description": "Identify blurry photos"
+        },
+        {
+            "id": 4,
+            "name": "In-Focus Detection",
+            "description": "Find well-focused images"
+        },
+        {
+            "id": 5,
+            "name": "Out-of-Focus Detection",
+            "description": "Identify poorly focused images"
+        },
+        {
+            "id": 6,
+            "name": "Closed Eyes Detection",
+            "description": "Find photos with closed eyes"
+        },
+        {
+            "id": 7,
+            "name": "Run All Operations",
+            "description": "Process all operations in optimal order"
+        },
+        {
+            "id": 8,
+            "name": "Modify Parameters",
+            "description": "Modify processing parameters"
+        },
+        {
+            "id": 9,
+            "name": "Help",
+            "description": "Show help information"
+        }
+    ]
+}

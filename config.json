@@ -1,0 +1,75 @@
+{
+    "paths": {
+        "models_directory": "models",
+        "cache_directory": "cache",
+        "temp_directory": "temp",
+        "log_directory": "logs",
+        "output_directory": "output"
+    },
+    "thresholds": {
+        "blur_threshold": 20,
+        "focus_threshold": 45,
+        "off_focus_threshold": 25,
+        "best_quality_score": 65,
+        "in_focus_confidence": 75,
+        "quality_threshold": 0.65,
+        "minimum_contrast": 0.35,
+        "minimum_exposure": 0.35,
+        "minimum_overall_quality": 0.55,
+        "resolution_min": 250,
+        "contrast_min": 70,
+        "sharpness_min": 450,
+        "fft_size": 60,
+        "fft_thresh": 10,
+        "eye_confidence": 95,
+        "eye_detection_threshold": 90,
+        "eye_ml_confidence": 95,
+        "eye_gemini_confidence": 95,
+        "duplicate_hash_threshold": 60,
+        "best_quality_min_score": 60,
+        "gemini_confidence_min": 85,
+        "exposure_tolerance": 0.35,
+        "quality_boost_factor": 1.1,
+        "cultural_features_boost": 1.15
+    },
+    "processing_settings": {
+        "max_image_dimension": 2000,
+        "batch_size": 16,
+        "max_workers": 4,
+        "use_gpu": true,
+        "memory_limit": 8
+    },
+    "image_processing": {
+        "raw_processing": {
+            "enabled": true,
+            "preserve_metadata": true,
+            "use_camera_wb": true,
+            "output_format": "png",
+            "jpeg_quality": 95
+        }
+    },
+    "quality_weights": {
+        "resolution": 0.15,
+        "face_detection": 0.20,
+        "contrast": 0.15,
+        "sharpness": 0.20,
+        "noise": 0.15,
+        "exposure": 0.15
+    },
+    "supported_formats": {
+        "standard": [
+            ".jpg", ".JPG",
+            ".jpeg", ".JPEG",
+            ".png", ".PNG",
+            ".bmp", ".BMP",
+            ".tiff", ".TIFF"
+        ],
+        "raw": [
+            ".cr2", ".CR2",
+            ".nef", ".NEF",
+            ".arw", ".ARW",
+            ".orf", ".ORF",
+            ".raf", ".RAF"
+        ]
+    }
+}
