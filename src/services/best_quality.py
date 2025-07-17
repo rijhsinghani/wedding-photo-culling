@@ -248,8 +248,8 @@ def process_best_quality(input_dir: str, output_dir: str, raw_results: dict, con
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing images for best quality"):
             pass  # futures update the results internally
 
-    # Save report
-    save_json_report(directories['best_quality'], results, config)
+    # Save report at root level  
+    save_json_report(output_dir, results, config, 'best_quality_report.json')
     
     # Print summary
     print(f"\nBest Quality Detection Summary:")

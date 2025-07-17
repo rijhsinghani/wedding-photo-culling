@@ -15,6 +15,7 @@ from typing import Dict
 
 from src.services.preprocess import preprocess_raw_images
 from src.services.best_quality import process_best_quality
+from src.services.best_quality_tiered import process_best_quality_tiered
 from src.services.blur import process_blur
 from src.services.closed_eyes import process_closed_eyes
 from src.services.duplicates import process_duplicates
@@ -106,7 +107,7 @@ def print_menu():
     
     menu_items = [
         ("0", "Exit", "Exit the application"),
-        ("1", "Best Quality", "Identify highest quality photos (runs full analysis)"),
+        ("1", "Best Quality", "Tiered selection for 50% client delivery (full analysis)"),
         ("2", "Duplicates", "Find similar or duplicate photos"),
         ("3", "Blurry", "Identify blurry photos (threshold < 25)"),
         ("4", "Focus Analysis", "Find in-focus (>50) and off-focus (20-50) images"),
@@ -180,7 +181,7 @@ def print_help():
     operations_table.add_column("Process Flow", style="dim")
     
     operations = [
-        ("Best Quality", "1. Remove blurry (< 25)\n2. Group duplicates\n3. Check focus\n4. Assess quality"),
+        ("Best Quality", "1. Remove blurry/closed eyes\n2. Group duplicates\n3. Tiered selection (T1:80+, T2:60-79, T3:45-59)\n4. Coverage analysis\n5. Deliver ~50% for cohesive gallery"),
         ("Duplicates", "Find and group similar images using perceptual hashing"),
         ("Blurry", "Detect blurry images using Laplacian & FFT (< 25)"),
         ("Focus Analysis", "1. Remove blurry\n2. Group duplicates\n3. Check focus (>50 in, 20-50 off)"),
@@ -226,8 +227,8 @@ def display_operation_summary(operation_name: str, results: Dict):
         console.print(table)
 
 def process_quality_flow(input_dir: str, output_dir: str, raw_results: Dict, config: Dict) -> Dict:
-    """Handle best quality processing flow with optimizations."""
-    console.print("[cyan]Starting optimized quality analysis flow...")
+    """Handle best quality processing flow with optimizations and tiered selection."""
+    console.print("[cyan]Starting optimized quality analysis flow with 50% delivery target...")
     
     # Check if batch processing is enabled
     batch_config = config.get('batch_processing', {})
@@ -243,7 +244,7 @@ def process_quality_flow(input_dir: str, output_dir: str, raw_results: Dict, con
         console.print("[cyan]• Step 1: Duplicate detection")
         console.print("[cyan]• Step 2: Blur + Focus (parallel)")
         console.print("[cyan]• Step 3: Eye detection")  
-        console.print("[cyan]• Step 4: Quality assessment")
+        console.print("[cyan]• Step 4: Tiered quality assessment (50% delivery target)")
         
         results = workflow.process_quality_flow_parallel(input_dir, output_dir, raw_results)
         
@@ -262,7 +263,7 @@ def process_quality_flow(input_dir: str, output_dir: str, raw_results: Dict, con
 
 
 def process_quality_flow_sequential(input_dir: str, output_dir: str, raw_results: Dict, config: Dict) -> Dict:
-    """Original sequential processing flow (fallback)."""
+    """Original sequential processing flow (fallback) with tiered selection."""
     # First process duplicates
     console.print("\n[yellow]Step 1: Processing duplicates...")
     duplicate_results = process_duplicates(input_dir, output_dir, raw_results, config)
@@ -279,9 +280,9 @@ def process_quality_flow_sequential(input_dir: str, output_dir: str, raw_results
     console.print("\n[yellow]Step 4: Processing focus analysis...")
     focus_results = process_focus(input_dir, output_dir, raw_results, config)
     
-    # Finally process best quality
-    console.print("\n[yellow]Step 5: Processing best quality selection...")
-    quality_results = process_best_quality(input_dir, output_dir, raw_results, config)
+    # Finally process best quality with tiered selection
+    console.print("\n[yellow]Step 5: Processing tiered quality selection (50% delivery)...")
+    quality_results = process_best_quality_tiered(input_dir, output_dir, raw_results, config)
     
     return {
         'duplicate_results': duplicate_results,

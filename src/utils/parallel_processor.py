@@ -125,7 +125,7 @@ class OptimizedWorkflow:
         from src.services.blur import process_blur
         from src.services.focus import process_focus
         from src.services.closed_eyes import process_closed_eyes
-        from src.services.best_quality import process_best_quality
+        from src.services.best_quality_tiered import process_best_quality_tiered
         
         results = {}
         
@@ -150,9 +150,9 @@ class OptimizedWorkflow:
         eyes_results = process_closed_eyes(input_dir, output_dir, raw_results, self.config)
         results['eyes_results'] = eyes_results
         
-        # Step 4: Best quality assessment (uses all previous results)
-        logger.info("Step 4: Processing best quality selection...")
-        # Pass previous results to best quality processor
+        # Step 4: Best quality assessment with tiered selection (uses all previous results)
+        logger.info("Step 4: Processing tiered quality selection for 50% delivery...")
+        # Pass previous results to tiered quality processor
         enhanced_config = self.config.copy()
         enhanced_config['previous_results'] = {
             'duplicates': duplicate_results,
@@ -161,7 +161,7 @@ class OptimizedWorkflow:
             'eyes': eyes_results
         }
         
-        quality_results = process_best_quality(input_dir, output_dir, raw_results, enhanced_config)
+        quality_results = process_best_quality_tiered(input_dir, output_dir, raw_results, enhanced_config)
         results['quality_results'] = quality_results
         
         return results

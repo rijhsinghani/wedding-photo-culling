@@ -26,11 +26,18 @@
         "eye_ml_confidence": 95,
         "eye_gemini_confidence": 95,
         "duplicate_hash_threshold": 60,
-        "best_quality_min_score": 60,
-        "gemini_confidence_min": 85,
+        "best_quality_min_score": 45,
+        "gemini_confidence_min": 70,
         "exposure_tolerance": 0.35,
         "quality_boost_factor": 1.1,
-        "cultural_features_boost": 1.15
+        "cultural_features_boost": 1.15,
+        "coverage_importance_boost": 1.2,
+        "solo_shot_threshold": 40,
+        "key_moment_threshold": 35,
+        "target_delivery_percentage": 50,
+        "tier_1_threshold": 80,
+        "tier_2_threshold": 60,
+        "tier_3_threshold": 45
     },
     "processing_settings": {
         "max_image_dimension": 2000,

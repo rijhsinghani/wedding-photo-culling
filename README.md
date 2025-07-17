@@ -4,6 +4,9 @@ An intelligent, high-performance photo culling system designed to help photograp
 
 ## 🌟 Key Features
 
+- **50% Client Delivery Target**: Intelligently selects ~50% of photos for cohesive client galleries
+- **Tiered Quality System**: Organizes photos into delivery tiers (T1: 80+, T2: 60-79, T3: 45-59)
+- **Coverage Analysis**: Ensures complete event documentation with gap detection
 - **RAW File Support**: Automatically converts and processes RAW files (ARW, CR2, NEF, RAF, ORF)
 - **Intelligent Duplicate Detection**: Identifies similar photos using perceptual hashing and face recognition
 - **Multi-Algorithm Quality Assessment**: 
@@ -85,7 +88,7 @@ python cli.py
 
 Choose from the following options:
 
-1. **Best Quality** - Comprehensive analysis to identify the highest quality photos
+1. **Best Quality** - Tiered selection for 50% client delivery (full analysis)
 2. **Duplicates** - Find and group similar photos
 3. **Blurry** - Identify blurry photos (threshold < 25)
 4. **Focus Analysis** - Find in-focus (>50) and off-focus (20-50) images
@@ -104,7 +107,12 @@ python cli.py
 
 # Results will be organized in:
 # output/
-#   ├── best_quality/     # Top tier photos
+#   ├── delivery/         # Client-ready photos (~50% of total)
+#   │   ├── highlights/   # Tier 1 portfolio quality (80+)
+#   │   ├── ceremony/     # Organized by event segment
+#   │   ├── reception/    
+#   │   ├── portraits/    
+#   │   └── details/      
 #   ├── in_focus/         # Sharp, well-focused images
 #   ├── duplicates/       # Grouped similar photos
 #   ├── closed_eyes/      # Photos with eyes closed
@@ -123,7 +131,11 @@ Edit `config.json` to customize processing parameters:
         "focus_threshold": 50,
         "eye_confidence": 50,
         "duplicate_hash_threshold": 50,
-        "best_quality_score": 65
+        "best_quality_min_score": 45,
+        "target_delivery_percentage": 50,
+        "tier_1_threshold": 80,
+        "tier_2_threshold": 60,
+        "tier_3_threshold": 45
     },
     "batch_processing": {
         "enabled": true,
@@ -152,8 +164,20 @@ Edit `config.json` to customize processing parameters:
    ↓
 4. Eye Detection (uses face data from step 2)
    ↓
-5. Quality Assessment (aggregates all results)
+5. Tiered Quality Selection (50% delivery target):
+   - Tier 1 (80-100): Portfolio quality
+   - Tier 2 (60-79): Delivery quality  
+   - Tier 3 (45-59): Coverage quality
+   - Coverage analysis for complete event documentation
 ```
+
+### Tiered Selection Philosophy
+
+The system is designed to deliver approximately 50% of captured photos to ensure clients receive:
+- **Complete Event Coverage**: All key moments and people represented
+- **Quality Over Quantity**: Technical excellence balanced with storytelling
+- **Cohesive Gallery**: Photos that work together to tell the wedding story
+- **Solo Shot Guarantee**: Every important person has at least one good photo
 
 ### Core Components
 

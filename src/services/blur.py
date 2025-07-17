@@ -42,9 +42,7 @@ def process_blur(input_dir: str, output_dir: str, raw_results: dict, config: dic
     directories = setup_directories(output_dir)
     detector = BlurDetector(threshold=config.get('thresholds', {}).get('blur_threshold', 25))
     
-    # Create poor_quality directory
-    poor_quality_dir = os.path.join(output_dir, 'poor_quality')
-    os.makedirs(poor_quality_dir, exist_ok=True)
+    # Use blurry directory from setup_directories
     
     results = {
         'blurry': [],
@@ -90,7 +88,7 @@ def process_blur(input_dir: str, output_dir: str, raw_results: dict, config: dic
                 # If severely overexposed, copy to poor_quality.
                 if overexposed_ratio > 0.30:
                     rel_path = os.path.relpath(os.path.dirname(image_path), input_dir)
-                    dest_dir = os.path.join(poor_quality_dir, rel_path)
+                    dest_dir = os.path.join(directories['blurry'], rel_path)
                     os.makedirs(dest_dir, exist_ok=True)
                     
                     dest_path = os.path.join(dest_dir, os.path.basename(original_path))
@@ -105,7 +103,7 @@ def process_blur(input_dir: str, output_dir: str, raw_results: dict, config: dic
                             'issue_type': 'exposure'
                         })
                         results['stats']['overexposed_detected'] += 1
-                    cache.add_processed_image(image_path, 'poor_quality')
+                    cache.add_processed_image(image_path, 'blurry')
                     return
 
             # Regular blur detection.
@@ -120,7 +118,7 @@ def process_blur(input_dir: str, output_dir: str, raw_results: dict, config: dic
             
             if blur_result["is_blurry"] and blur_result["confidence"] >= 90:
                 rel_path = os.path.relpath(os.path.dirname(image_path), input_dir)
-                dest_dir = os.path.join(poor_quality_dir, rel_path)
+                dest_dir = os.path.join(directories['blurry'], rel_path)
                 os.makedirs(dest_dir, exist_ok=True)
                 
                 dest_path = os.path.join(dest_dir, os.path.basename(original_path))
@@ -156,8 +154,8 @@ def process_blur(input_dir: str, output_dir: str, raw_results: dict, config: dic
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Detecting blur"):
             pass
 
-    # Save reports for backwards compatibility.
-    save_json_report(poor_quality_dir, results, config)
+    # Save report at root level
+    save_json_report(output_dir, results, config, 'blur_report.json')
     
     # Print summary.
     print(f"\nBlur Detection Summary:")

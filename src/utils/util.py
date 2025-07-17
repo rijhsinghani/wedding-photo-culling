@@ -32,11 +32,10 @@ def setup_directories(output_dir: str) -> Dict[str, str]:
     """Create necessary output directories."""
     directories = {
         'best_quality': os.path.join(output_dir, 'best_quality'),
-        'poor_quality': os.path.join(output_dir, 'poor_quality'), 
-        'closed_eyes': os.path.join(output_dir, 'closed_eyes'),
-        'in_focus': os.path.join(output_dir, 'in_focus'),
         'duplicates': os.path.join(output_dir, 'duplicates'),
-        'other_files': os.path.join(output_dir, 'other_files')  
+        'closed_eyes': os.path.join(output_dir, 'closed_eyes'),
+        'blurry': os.path.join(output_dir, 'blurry'),
+        'in_focus': os.path.join(output_dir, 'in_focus')
     }
     
     for dir_path in directories.values():
@@ -44,7 +43,7 @@ def setup_directories(output_dir: str) -> Dict[str, str]:
     
     return directories
 
-def save_json_report(folder_path: str, images_info: Dict, config: Dict):
+def save_json_report(folder_path: str, images_info: Dict, config: Dict, report_name: str = None):
     """Save processing results to a JSON file with proper type conversion."""
     def convert_numpy_types(obj):
         if isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, 
@@ -73,7 +72,15 @@ def save_json_report(folder_path: str, images_info: Dict, config: Dict):
         }
     }
     
-    json_path = os.path.join(folder_path, 'report.json')
+    # If report_name is provided, save at root level of output directory
+    if report_name:
+        # Get parent directory (output_dir) from folder_path
+        output_dir = os.path.dirname(folder_path) if os.path.basename(folder_path) in ['best_quality', 'duplicates', 'closed_eyes', 'blurry'] else folder_path
+        json_path = os.path.join(output_dir, report_name)
+    else:
+        # Legacy behavior - save in the folder
+        json_path = os.path.join(folder_path, 'report.json')
+        
     with open(json_path, 'w') as f:
         json.dump(report, f, indent=4, default=convert_numpy_types)
 

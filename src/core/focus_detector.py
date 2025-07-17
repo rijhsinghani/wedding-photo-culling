@@ -13,6 +13,8 @@ import torch.multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 mp.set_start_method('spawn', force=True)
 import sys
+import logging
+import signal
 
 # Third-party imports
 import numpy as np
@@ -49,6 +51,9 @@ class FocusDetector:
         # Initialize Gemini
         genai.configure(api_key=GEMINI_API_KEY)
         self.gemini_model = genai.GenerativeModel(GEMINI_MODEL)
+        
+        # Add simple caching for repeated analysis
+        self._analysis_cache = {}
         
         self.gemini_prompt = """
         Analyze this wedding photo for focus quality:
@@ -88,29 +93,54 @@ class FocusDetector:
         """
 
     def analyze_with_gemini(self, image_path: str) -> Dict[str, Any]:
-        """Analyze image using Gemini for focus verification with enhanced logging."""
+        """Analyze image using Gemini for focus verification with timeout handling."""
+        import time
+        import signal
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Gemini API timeout")
+        
         try:
             resized_path = resize_for_gemini(image_path)
             if not resized_path:
-                return {"status": "error", "confidence": 0, "reason": "Failed to process image"}
+                return {"status": "ERROR", "confidence": 0, "reason": "Failed to process image"}
 
             from PIL import Image
+            
+            # Set timeout for API call (10 seconds max)
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(10)
+            
+            start_time = time.time()
             with Image.open(resized_path) as img:
                 response = self.gemini_model.generate_content([
                     self.gemini_prompt,
                     img
                 ])
             
+            # Clear the alarm
+            signal.alarm(0)
+            api_time = time.time() - start_time
+            
+            if api_time > 5:  # Log slow API calls
+                logger.warning(f"Slow Gemini API call: {api_time:.2f}s for {os.path.basename(image_path)}")
+            
             os.remove(resized_path)
             
             # Parse response with logging
+            if not response or not response.text:
+                logger.error("Empty response from Gemini API")
+                return {"status": "ERROR", "confidence": 0, "reason": "Empty API response"}
+                
             response_text = response.text.strip()
-            logger.info(f"Gemini raw response: {response_text}")
+            # Only log responses in debug mode to reduce noise
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Gemini raw response: {response_text}")
             
             parts = response_text.split('|')
             if len(parts) != 3:
                 logger.error(f"Invalid response format: {response_text}")
-                return {"status": "error", "confidence": 0, "reason": "Invalid response format"}
+                return {"status": "ERROR", "confidence": 0, "reason": "Invalid response format"}
                 
             status, confidence, reason = parts
             
@@ -134,9 +164,32 @@ class FocusDetector:
                 "reason": reason.strip()
             }
             
+        except TimeoutError:
+            logger.error(f"Gemini API timeout for {image_path}")
+            return {
+                "status": "ERROR", 
+                "confidence": 0, 
+                "reason": "Gemini API timeout - image processing too slow"
+            }
         except Exception as e:
-            logger.error(f"Error in Gemini analysis: {str(e)}")
-            return {"status": "error", "confidence": 0, "reason": str(e)}
+            # Clear any pending alarm
+            try:
+                signal.alarm(0)
+            except:
+                pass
+            logger.error(f"Error in Gemini analysis for {image_path}: {str(e)}")
+            return {
+                "status": "ERROR", 
+                "confidence": 0, 
+                "reason": f"Gemini analysis failed: {str(e)}"
+            }
+        finally:
+            # Ensure cleanup
+            try:
+                if 'resized_path' in locals() and os.path.exists(resized_path):
+                    os.remove(resized_path)
+            except:
+                pass
 
     def detect_faces(self, image: np.ndarray) -> bool:
         """Detect if image contains faces."""
@@ -194,6 +247,12 @@ class FocusDetector:
 
     def analyze_image(self, image_path: str) -> Dict:
         try:
+            # Check cache first
+            cache_key = os.path.basename(image_path)
+            if cache_key in self._analysis_cache:
+                logger.debug(f"Using cached result for {cache_key}")
+                return self._analysis_cache[cache_key]
+            
             image = cv2.imread(image_path)
             if image is None:
                 return None
@@ -214,8 +273,14 @@ class FocusDetector:
             # Get Gemini analysis
             gemini_result = self.analyze_with_gemini(image_path)
             
+            # Check if gemini_result is valid
+            if not gemini_result or not isinstance(gemini_result, dict):
+                logger.error(f"Invalid gemini_result: {gemini_result}")
+                return None
+            
             # Add additional rejection criteria
-            has_rejection_terms = any(term in gemini_result['reason'].lower() for term in [
+            reason = gemini_result.get('reason', '')
+            has_rejection_terms = any(term in reason.lower() for term in [
                 'back turned',
                 'backs turned',
                 'distracting',
@@ -233,24 +298,38 @@ class FocusDetector:
             result = {
                 'filename': os.path.basename(image_path),
                 'focus_score': float(focus_score),
-                'gemini_status': gemini_result['status'],
-                'confidence': float(gemini_result['confidence']),
-                'detail': gemini_result['reason']
+                'gemini_status': gemini_result.get('status', 'ERROR'),
+                'confidence': float(gemini_result.get('confidence', 0)),
+                'detail': reason
             }
 
             # Modified decision logic to be more strict
             if (focus_score >= config_focus_threshold and 
-                gemini_result['confidence'] >= config_confidence_threshold and 
-                gemini_result['status'] == 'IN_FOCUS' and 
+                gemini_result.get('confidence', 0) >= config_confidence_threshold and 
+                gemini_result.get('status', '') == 'IN_FOCUS' and 
                 not has_rejection_terms and
-                'foreground' not in gemini_result['reason'].lower()):  # Added check
+                'foreground' not in reason.lower()):  # Added check
                 
                 result['status'] = "in_focus"
             else:
                 result['status'] = "off_focus"
 
+            # Cache the result
+            self._analysis_cache[cache_key] = result
             return result
 
         except Exception as e:
-            logger.error(f"Error analyzing image: {str(e)}")
-            return None
+            logger.error(f"Error analyzing image {image_path}: {str(e)}")
+            # Return a valid error result instead of None
+            error_result = {
+                'filename': os.path.basename(image_path),
+                'focus_score': 0.0,
+                'gemini_status': 'ERROR',
+                'confidence': 0.0,
+                'detail': f'Error during analysis: {str(e)}',
+                'status': 'error'
+            }
+            # Cache the error result to avoid repeated failures
+            cache_key = os.path.basename(image_path)
+            self._analysis_cache[cache_key] = error_result
+            return error_result

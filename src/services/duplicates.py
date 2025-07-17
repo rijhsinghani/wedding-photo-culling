@@ -70,12 +70,17 @@ def process_duplicates(input_dir: str, output_dir: str, raw_results: dict, confi
         if not duplicate_groups:
             return results
 
+        # Create mapping from basenames to full paths
+        path_mapping = {}
+        for img_path in image_files:
+            path_mapping[os.path.basename(img_path)] = img_path
+            
         # Process each duplicate group concurrently.
         results_lock = threading.Lock()
 
-        def process_group(group_id, group_info):
+        def process_group(group_id, group_info, path_mapping):
             try:
-                # Convert temporary file paths to original paths.
+                # Convert basenames to full paths
                 best_image = path_mapping.get(group_info['best_image'])
                 if not best_image:
                     return
@@ -100,8 +105,9 @@ def process_duplicates(input_dir: str, output_dir: str, raw_results: dict, confi
                             original_best_image = converted['raw_path']
                             break
 
-                # Copy the best image.
-                best_dest = os.path.join(group_dir, os.path.basename(original_best_image))
+                # Copy the best image with BEST_ prefix
+                best_filename = 'BEST_' + os.path.basename(original_best_image)
+                best_dest = os.path.join(group_dir, best_filename)
                 shutil.copy2(str(original_best_image), best_dest)
 
                 # Process and copy similar images.
@@ -137,7 +143,7 @@ def process_duplicates(input_dir: str, output_dir: str, raw_results: dict, confi
                     results['stats']['processing_errors'] += 1
 
         with ThreadPoolExecutor(max_workers=max_worker) as executor:
-            group_futures = [executor.submit(process_group, group_id, group_info)
+            group_futures = [executor.submit(process_group, group_id, group_info, path_mapping)
                              for group_id, group_info in duplicate_groups.items()]
             for _ in tqdm(as_completed(group_futures), total=len(group_futures), 
                           desc="Processing duplicate groups"):
@@ -153,18 +159,12 @@ def process_duplicates(input_dir: str, output_dir: str, raw_results: dict, confi
             len(group['duplicates']) for group in results['duplicates'].values()
         )
 
-        # Save the JSON report.
-        save_json_report(directories['duplicates'], results, config)
+        # Save the JSON report at root level
+        save_json_report(directories['duplicates'], results, config, 'duplicates_report.json')
         return results
 
     except Exception as e:
         logger.error(f"Error in duplicate detection: {str(e)}")
         raise
-    finally:
-        # Clean up the temporary directory.
-        try:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        except Exception as e:
-            logger.error(f"Error cleaning up temp directory: {str(e)}")
 
 

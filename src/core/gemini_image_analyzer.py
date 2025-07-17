@@ -41,17 +41,43 @@ class GeminiImageAnalyzer:
         self.hash_threshold = 20
         self.image_hashes = {}
         self.prompt = """
-        Analyze this wedding photo with absolute precision for top-tier photo selection:
+        Analyze this wedding photo for client delivery with balanced criteria:
 
-        MANDATORY REJECTION CRITERIA [Any of these fails the image]:
-        - Backs turned to camera for main subjects
-        - Distracting foreground elements
-        - No clear storytelling moment
-        - Poor composition that detracts from subjects
-        - No clear main subject
-        - Unclear context or significance
-        - People walking through frame
-        - Major distractions in background
+        CONTEXT-AWARE EVALUATION:
+        Consider the photo's role in telling the complete wedding story. Some technical imperfections 
+        are acceptable if the photo captures an important moment or person.
+
+        TIER 1 (Score 80-100) - PORTFOLIO QUALITY:
+        - Perfect technical execution (focus, exposure, composition)
+        - Exceptional emotional moment or expression
+        - Strong storytelling element
+        - Could be featured in photographer's portfolio
+
+        TIER 2 (Score 60-79) - DELIVERY QUALITY:
+        - Good technical quality (minor issues acceptable)
+        - Clear subject and moment
+        - Contributes to event narrative
+        - Client would want to keep this
+
+        TIER 3 (Score 45-59) - COVERAGE QUALITY:
+        - Acceptable technical quality
+        - Important for complete coverage (key person/moment)
+        - May have minor blur, exposure, or composition issues
+        - Still tells part of the story
+
+        REJECTION (Score <45) - ONLY IF:
+        - Severely out of focus on main subject
+        - Extreme over/underexposure (unrecoverable)
+        - Backs completely turned (unless artistic/intentional)
+        - No discernible subject or moment
+        - Technical issues that prevent any use
+
+        IMPORTANT CONSIDERATIONS:
+        - Solo shots of guests: Lower technical bar (40+)
+        - Key moments (vows, kiss, speeches): Lower bar (35+)
+        - Group photos: Ensure most faces visible
+        - Candid moments: Emotion over perfection
+        - Detail shots: Part of complete coverage
         
         Key Verification Checks [Mandatory]:
         - Eyes: Ensure all subjects have clearly open eyes, no blinks or squints

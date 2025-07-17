@@ -100,7 +100,7 @@ def process_closed_eyes(input_dir: str, output_dir: str, raw_results: dict, conf
                     })
                     results['stats']['closed_eyes_detected'] += 1
                     cache.add_processed_image(img_name, 'closed_eyes')
-            elif reason == "No faces detected":
+            elif reason in ["No faces detected", "Face too small - likely venue/decor shot", "No significant faces - skip eye detection"]:
                 with results_lock:
                     results['no_face_detected'].append({
                         'path': str(original_image_path),
@@ -125,8 +125,8 @@ def process_closed_eyes(input_dir: str, output_dir: str, raw_results: dict, conf
         for _ in tqdm(as_completed(futures), total=len(futures), desc="Processing images for closed eyes"):
             pass
 
-    # Save JSON report.
-    save_json_report(directories['closed_eyes'], results, config)
+    # Save JSON report at root level.
+    save_json_report(directories['closed_eyes'], results, config, 'closed_eyes_report.json')
     
     # Print summary.
     print(f"\nClosed Eyes Detection Summary:")

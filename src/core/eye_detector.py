@@ -152,8 +152,28 @@ class EyeDetector:
             if len(faces) == 0:
                 return False, 0, "No faces detected"
 
-            # Sort faces by size and only check main subject
+            # Calculate image area for context detection
+            image_height, image_width = gray.shape
+            image_area = image_width * image_height
+            
+            # Sort faces by size and filter out very small faces
             faces = sorted(faces, key=lambda x: x[2] * x[3], reverse=True)
+            
+            # Check if this is a portrait/group photo vs venue/decor shot
+            largest_face_area = faces[0][2] * faces[0][3]
+            face_to_image_ratio = largest_face_area / image_area
+            
+            # Skip eye detection for:
+            # - Faces smaller than 5% of image (background people)
+            # - Wide/establishing shots
+            if face_to_image_ratio < 0.05:
+                return False, 0, "Face too small - likely venue/decor shot"
+                
+            # For group photos, check if multiple significant faces
+            significant_faces = [f for f in faces if (f[2] * f[3]) / image_area > 0.03]
+            if len(significant_faces) == 0:
+                return False, 0, "No significant faces - skip eye detection"
+            
             main_face = faces[0]
             
             # Get ML model prediction first

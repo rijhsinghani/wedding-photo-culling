@@ -106,11 +106,7 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
     previous_results = get_existing_results(output_dir)
     processed_files = set()
 
-    # Create best_quality directory
-    best_quality_dir = os.path.join(output_dir, 'best_quality')
-    poor_quality_dir = os.path.join(output_dir, 'poor_quality')  # New combined directory
-    os.makedirs(best_quality_dir, exist_ok=True)
-    os.makedirs(poor_quality_dir, exist_ok=True)
+    # Directories are already created by setup_directories
 
     for img_path in tqdm(image_files, desc="Analyzing focus"):
         img_name = os.path.basename(img_path)
@@ -138,6 +134,15 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
             focus_result = detector.analyze_image(img_path)
             if not focus_result or not isinstance(focus_result, dict):
                 results['stats']['processing_errors'] += 1
+                logger.warning(f"Focus analysis failed for {img_name}: Invalid result")
+                continue
+
+            # Validate that required keys exist
+            required_keys = ['status', 'gemini_status', 'focus_score', 'confidence']
+            missing_keys = [key for key in required_keys if key not in focus_result]
+            if missing_keys:
+                results['stats']['processing_errors'] += 1
+                logger.error(f"Focus result missing keys for {img_name}: {missing_keys}")
                 continue
 
             results['stats']['total_processed'] += 1
@@ -145,9 +150,11 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
 
             focus_score = focus_result.get('focus_score', 0)
             gemini_confidence = focus_result.get('confidence', 0)
+            status = focus_result.get('status', 'unknown')
+            gemini_status = focus_result.get('gemini_status', 'UNKNOWN')
 
-            if (focus_result.get('status') == "in_focus" and 
-                focus_result.get('gemini_status') == "IN_FOCUS" and 
+            if (status == "in_focus" and 
+                gemini_status == "IN_FOCUS" and 
                 focus_score >= focus_threshold and 
                 gemini_confidence >= in_focus_confidence):
                 
@@ -168,7 +175,7 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
                     cache.add_processed_image(img_name, 'in_focus')
                     processed_files.add(img_name)
 
-                    best_quality_dest_dir = os.path.join(best_quality_dir, rel_path)
+                    best_quality_dest_dir = os.path.join(directories['best_quality'], rel_path)
                     os.makedirs(best_quality_dest_dir, exist_ok=True)
                     best_quality_dest_path = os.path.join(best_quality_dest_dir, 
                                                         os.path.basename(original_image_path))
@@ -176,9 +183,9 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
                     shutil.copy2(str(original_image_path), best_quality_dest_path)
                     cache.add_processed_image(img_name, 'best_quality')
             
-            elif focus_result.get('status') == "off_focus":
-                # Save to poor_quality directory instead
-                dest_dir = os.path.join(poor_quality_dir, rel_path)
+            elif status == "off_focus":
+                # Save to blurry directory
+                dest_dir = os.path.join(directories['blurry'], rel_path)
                 os.makedirs(dest_dir, exist_ok=True)
                 dest_path = os.path.join(dest_dir, os.path.basename(original_image_path))
                 
@@ -193,13 +200,14 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
                         'issue_type': 'focus'  # Added to track issue type
                     })
                     results['stats']['out_focus_detected'] += 1
-                    cache.add_processed_image(img_name, 'poor_quality')  # Updated cache key
+                    cache.add_processed_image(img_name, 'blurry')
                     processed_files.add(img_name)
             
             else:
-                if focus_result.get('status') == "blur":
-                    # Save to poor_quality directory
-                    dest_dir = os.path.join(poor_quality_dir, rel_path)
+                # Handle blur, no_subject, error, and other cases
+                if status == "blur":
+                    # Save to blurry directory
+                    dest_dir = os.path.join(directories['blurry'], rel_path)
                     os.makedirs(dest_dir, exist_ok=True)
                     dest_path = os.path.join(dest_dir, os.path.basename(original_image_path))
                     
@@ -212,27 +220,32 @@ def process_focus(input_dir: str, output_dir: str, raw_results: Dict, config: Di
                             'issue_type': 'blur'  # Added to track issue type
                         })
                         results['stats']['blurry_detected'] += 1
-                        cache.add_processed_image(img_name, 'poor_quality')  # Updated cache key
-                else:
+                        cache.add_processed_image(img_name, 'blurry')
+                elif status == "no_subject":
                     results['no_subject'].append({
                         'path': str(original_image_path),
                         'detail': focus_result.get('detail', '')
                     })
                     results['stats']['no_subject'] += 1
-                processed_files.add(img_name)
+                elif status == "error":
+                    # This is a processing error, increment error counter
+                    results['stats']['processing_errors'] += 1
+                    logger.error(f"Focus analysis error for {img_name}: {focus_result.get('detail', 'Unknown error')}")
+                else:
+                    # Log unknown status for debugging
+                    logger.warning(f"Unknown focus status '{status}' for {img_name}")
+                    results['stats']['processing_errors'] += 1
+            
+            processed_files.add(img_name)
 
         except Exception as e:
             results['stats']['processing_errors'] += 1
             logger.error(f"Error processing {img_name}: {str(e)}")
-            if 'eyes' in str(e):
-                if 'eyes' not in results['stats']['excluded']:
-                    results['stats']['excluded']['eyes'] = 0
-                results['stats']['excluded']['eyes'] += 1
+            # Don't try to access the error message as a key
             continue
 
-    # Save reports to both directories for backwards compatibility
-    save_json_report(directories['in_focus'], results, config)
-    save_json_report(poor_quality_dir, results, config)
+    # Save report at root level
+    save_json_report(output_dir, results, config, 'focus_report.json')
 
     log_file = os.path.join(output_dir, 'focus_analysis.log')
     logger.addHandler(logging.FileHandler(log_file))
