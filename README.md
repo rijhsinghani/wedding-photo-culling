@@ -146,6 +146,22 @@ Edit `config.json` to customize processing parameters:
         "batch_size": 8,
         "max_workers": 4,
         "use_gpu": false
+    },
+    "retry_settings": {
+        "enabled": true,
+        "max_attempts": 3,
+        "initial_delay": 2.0,
+        "max_delay": 30.0
+    },
+    "api_queue_manager": {
+        "enabled": true,
+        "max_concurrent_requests": 5,
+        "requests_per_minute": 60
+    },
+    "batch_gemini_processing": {
+        "enabled": true,
+        "batch_size": 5,
+        "use_queue_manager": true
     }
 }
 ```
@@ -207,6 +223,28 @@ output/
 ```
 
 ## 🔧 Advanced Features
+
+### Enhanced Performance Features (v2.0)
+
+**1. Intelligent Retry Logic**
+- Automatic retry with exponential backoff for API failures
+- Configurable retry attempts and delay settings
+- Prevents workflow interruption from transient errors
+
+**2. API Queue Management**
+- Rate limiting to respect API quotas (60 requests/minute)
+- Concurrent request management with configurable workers
+- Request prioritization and queueing
+
+**3. Batch Gemini Processing**
+- Process multiple images in a single API call
+- Reduces API overhead and improves throughput
+- Intelligent caching of resized images
+
+**4. Configuration-Driven Architecture**
+- All enhancements configurable via config.json
+- Enable/disable features without code changes
+- Fine-tune performance for your hardware
 
 ### Batch Processing for Large Collections
 

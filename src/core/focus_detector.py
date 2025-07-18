@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.utils.resize_gemini import resize_for_gemini
+from src.utils.retry_handler import retry_gemini_api, RetryConfig, retry_on_exception
 
 from ..config import logger, log_critical
 
@@ -92,8 +93,13 @@ class FocusDetector:
         OFF_FOCUS|60|Main subject slightly soft, some motion blur visible
         """
 
+    @retry_gemini_api
+    def _make_gemini_request(self, prompt: str, img) -> Any:
+        """Make the actual Gemini API request with retry logic"""
+        return self.gemini_model.generate_content([prompt, img])
+    
     def analyze_with_gemini(self, image_path: str) -> Dict[str, Any]:
-        """Analyze image using Gemini for focus verification with timeout handling."""
+        """Analyze image using Gemini for focus verification with timeout handling and retry."""
         import time
         import signal
         
@@ -113,10 +119,8 @@ class FocusDetector:
             
             start_time = time.time()
             with Image.open(resized_path) as img:
-                response = self.gemini_model.generate_content([
-                    self.gemini_prompt,
-                    img
-                ])
+                # Use the retry-wrapped method
+                response = self._make_gemini_request(self.gemini_prompt, img)
             
             # Clear the alarm
             signal.alarm(0)

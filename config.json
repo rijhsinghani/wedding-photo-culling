@@ -86,5 +86,33 @@
             ".orf", ".ORF",
             ".raf", ".RAF"
         ]
+    },
+    "retry_settings": {
+        "enabled": true,
+        "max_attempts": 3,
+        "initial_delay": 2.0,
+        "max_delay": 30.0,
+        "exponential_base": 2.0,
+        "jitter": true,
+        "retry_on_errors": ["ConnectionError", "TimeoutError", "ResourceExhausted"]
+    },
+    "api_queue_manager": {
+        "enabled": true,
+        "max_concurrent_requests": 5,
+        "requests_per_minute": 60,
+        "queue_size": 1000,
+        "request_timeout": 300
+    },
+    "batch_gemini_processing": {
+        "enabled": true,
+        "batch_size": 5,
+        "max_workers": 3,
+        "use_queue_manager": true,
+        "cache_resized_images": true,
+        "image_cache_size": 100
+    },
+    "focus_processing": {
+        "use_batch_processing": true,
+        "gemini_api_timeout": 10
     }
 }

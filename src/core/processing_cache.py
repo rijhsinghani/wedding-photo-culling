@@ -29,7 +29,8 @@ class ProcessingCache:
             'poor_quality': set(),  # Combined set
             'closed_eyes': set(),
             'in_focus': set(),
-            'best_quality': set()
+            'best_quality': set(),
+            'blurry': set()  # Added for focus service
         }
         self._initialize_cache()
 
