@@ -114,5 +114,12 @@
     "focus_processing": {
         "use_batch_processing": true,
         "gemini_api_timeout": 10
+    },
+    "duplicate_handling": {
+        "enabled": true,
+        "filter_duplicates_in_best_quality": true,
+        "auto_fix_violations": false,
+        "quality_control_check": true,
+        "log_duplicate_filtering": true
     }
 }

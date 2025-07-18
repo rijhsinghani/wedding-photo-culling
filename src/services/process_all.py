@@ -22,9 +22,10 @@ from src.core.processing_cache import ProcessingCache
 from src.core.image_preprocessor import ImagePreprocessor
 from src.main import print_detailed_summary
 from src.utils.util import setup_directories, save_json_report, get_all_image_files,cleanup_temp_directory
+from src.utils.quality_control import QualityControlChecker
 
 from src.services.preprocess import preprocess_raw_images
-from src.services.best_quality import process_best_quality
+from src.services.best_quality_tiered import process_best_quality_tiered
 from src.services.blur import process_blur
 from src.services.closed_eyes import process_closed_eyes
 from src.services.duplicates import process_duplicates
@@ -54,7 +55,7 @@ def run_process_focus(args):
     return process_focus(*args)
 
 def run_process_best_quality(args):
-    return process_best_quality(*args)
+    return process_best_quality_tiered(*args)
 
 
 def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict) -> Dict:
@@ -85,7 +86,12 @@ def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict
         temp_dir = os.path.join(output_dir, 'temp_converted')
         temp_dirs.append(temp_dir)
         raw_results = preprocess_raw_images(input_dir, output_dir)
-        input_dir = temp_dir
+        # Check if temp_converted exists, otherwise use output_dir
+        if os.path.exists(temp_dir) and os.listdir(temp_dir):
+            input_dir = temp_dir
+        else:
+            # Files might be directly in output_dir
+            input_dir = output_dir
     
     # Parallelized venue shot detection
     print("\nScanning for venue/decoration shots...")
@@ -112,12 +118,11 @@ def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict
             excluded_files.add(Path(file_path).name)
     
    
-    tasks = {
+    # Phase 1 tasks: blur, duplicates, closed_eyes (can run in parallel)
+    phase1_tasks = {
         'blur': (input_dir, output_dir, raw_results, config, cache),
         'duplicates': (input_dir, output_dir, raw_results, config, cache),
         'closed_eyes': (input_dir, output_dir, raw_results, config, cache),
-        'focus': (input_dir, output_dir, raw_results, config, cache, excluded_files, best_images),
-        'best_quality': (input_dir, output_dir, raw_results, config, cache, excluded_files, best_images),
     }
 
     # Function mapping
@@ -131,14 +136,17 @@ def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict
 
     results = {}
 
+    # Execute Phase 1 tasks in parallel
+    logger.info("Starting Phase 1: Blur, Duplicates, and Closed Eyes detection...")
     with ProcessPoolExecutor(max_workers=max_worker) as executor:
         future_to_task = {
-            executor.submit(task_functions[task], args): task for task, args in tasks.items()
+            executor.submit(task_functions[task], args): task for task, args in phase1_tasks.items()
         }
         for future in as_completed(future_to_task):
             task_name = future_to_task[future]
             try:
                 results[task_name] = future.result()
+                logger.info(f"Completed Phase 1 task: {task_name}")
             except Exception as e:
                 logger.error(f"Error in {task_name}: {str(e)}")
     
@@ -150,6 +158,54 @@ def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict
                 best_images.add(os.path.basename(best_image))
             for dup_info in group.get('duplicates', {}).values():
                 excluded_files.add(os.path.basename(str(dup_info.get('original_path', ''))))
+    
+    # Prepare combined results for Phase 2 tasks
+    combined_results = {
+        'raw_results': raw_results,
+        'duplicates': results.get('duplicates', {}),
+        'blur': results.get('blur', {}),
+        'closed_eyes': results.get('closed_eyes', {})
+    }
+    
+    # Phase 2 tasks: focus and best_quality (need duplicate results)
+    logger.info("Starting Phase 2: Focus and Best Quality selection...")
+    phase2_tasks = {
+        'focus': (input_dir, output_dir, combined_results, config, cache, excluded_files, best_images),
+        'best_quality': (input_dir, output_dir, combined_results, config, cache, excluded_files, best_images),
+    }
+    
+    # Execute Phase 2 tasks in parallel
+    with ProcessPoolExecutor(max_workers=max_worker) as executor:
+        future_to_task = {
+            executor.submit(task_functions[task], args): task for task, args in phase2_tasks.items()
+        }
+        for future in as_completed(future_to_task):
+            task_name = future_to_task[future]
+            try:
+                results[task_name] = future.result()
+                logger.info(f"Completed Phase 2 task: {task_name}")
+            except Exception as e:
+                logger.error(f"Error in {task_name}: {str(e)}")
+    
+    # Run quality control check
+    logger.info("Running quality control validation...")
+    quality_checker = QualityControlChecker(output_dir)
+    quality_report = quality_checker.generate_report()
+    
+    # Log quality control results
+    if quality_report['summary']['status'] == 'FAIL':
+        logger.warning(f"Quality control check failed with {quality_report['summary']['total_violations']} violations")
+        
+        # Check if we should auto-fix violations
+        if config.get('duplicate_handling', {}).get('auto_fix_violations', False):
+            logger.info("Auto-fixing duplicate violations...")
+            fix_actions = quality_checker.fix_duplicate_violations(dry_run=False)
+            logger.info(f"Fixed {len(fix_actions)} duplicate violations")
+            
+            # Re-run quality check after fixes
+            quality_report = quality_checker.generate_report()
+    else:
+        logger.info("Quality control check passed - no violations found")
     
     # Save report
     final_results = {
@@ -167,6 +223,13 @@ def process_all(input_dir: str, output_dir: str, raw_results: Dict, config: Dict
             'in_focus': len(results.get('focus', {}).get('in_focus', [])),
             'out_focus': len(results.get('focus', {}).get('out_focus', [])),
             'best_quality': len(results.get('best_quality', {}).get('best_quality', []))
+        },
+        'quality_control': {
+            'status': quality_report['summary']['status'],
+            'total_violations': quality_report['summary']['total_violations'],
+            'duplicate_violations': len(quality_report['violations']['duplicate_violations']),
+            'orphaned_files': len(quality_report['violations']['orphaned_files']),
+            'missing_folders': len(quality_report['violations']['missing_folders'])
         }
     }
     

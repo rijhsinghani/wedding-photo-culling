@@ -197,7 +197,8 @@ def process_best_quality_tiered(input_dir: str,
                               raw_results: dict, 
                               config: dict,
                               cache: ProcessingCache = None,
-                              exclude_files: set = None) -> dict:
+                              exclude_files: set = None,
+                              best_images: set = None) -> dict:
     """
     Process images for best quality selection with tiered delivery system.
     """
@@ -208,6 +209,33 @@ def process_best_quality_tiered(input_dir: str,
         
     directories = setup_directories(output_dir)
     
+    # Load duplicate groups information
+    duplicate_groups = {}
+    duplicate_best_images = set()
+    
+    # Get duplicate results from combined results or raw_results
+    if isinstance(raw_results, dict) and 'duplicates' in raw_results:
+        # New format: combined results from phased execution
+        duplicate_results = raw_results.get('duplicates', {})
+    else:
+        # Legacy format: direct raw_results
+        duplicate_results = raw_results.get('duplicates', {})
+    
+    if 'duplicates' in duplicate_results:
+        for group_id, group_data in duplicate_results['duplicates'].items():
+            if isinstance(group_data, dict):
+                best_image = group_data.get('best_image')
+                if best_image:
+                    duplicate_best_images.add(os.path.basename(best_image))
+                    best_basename = os.path.basename(best_image)
+                    
+                    # Map all duplicate images to the best image
+                    for dup_name, dup_info in group_data.get('duplicates', {}).items():
+                        duplicate_groups[dup_name] = best_basename
+                    
+                    # Also add the best image itself pointing to itself
+                    duplicate_groups[best_basename] = best_basename
+    
     selector = TieredQualitySelector(config)
     
     # Collect all photos with metadata
@@ -215,7 +243,15 @@ def process_best_quality_tiered(input_dir: str,
     image_files = get_all_image_files(input_dir, config['supported_formats'])
     
     # Get quality scores from existing analysis
-    in_focus_results = raw_results.get('focus_results', {}).get('in_focus', [])
+    # Check if raw_results contains the new combined format
+    if isinstance(raw_results, dict) and 'raw_results' in raw_results:
+        # New format: extract from nested raw_results
+        actual_raw_results = raw_results.get('raw_results', {})
+        in_focus_results = actual_raw_results.get('focus_results', {}).get('in_focus', [])
+    else:
+        # Legacy format
+        in_focus_results = raw_results.get('focus_results', {}).get('in_focus', [])
+    
     quality_scores = {}
     
     # Extract scores from various sources
@@ -227,10 +263,22 @@ def process_best_quality_tiered(input_dir: str,
     
     # Build metadata for all photos
     logger.info("Building photo metadata...")
+    duplicates_filtered = 0
+    
     for photo in tqdm(image_files, desc="Analyzing photos"):
-        if os.path.basename(photo) in exclude_files:
+        photo_basename = os.path.basename(photo)
+        
+        if photo_basename in exclude_files:
             continue
             
+        # Skip if this is not the best image from its duplicate group
+        if photo_basename in duplicate_groups:
+            best_from_group = duplicate_groups[photo_basename]
+            if photo_basename != best_from_group:
+                logger.debug(f"Skipping {photo_basename} - not best from duplicate group (best is {best_from_group})")
+                duplicates_filtered += 1
+                continue
+        
         metadata = {
             'quality_score': quality_scores.get(photo, 45),
             'faces': [],  # Would be populated from face detection
@@ -239,6 +287,9 @@ def process_best_quality_tiered(input_dir: str,
         }
         
         all_photos[photo] = metadata
+    
+    if duplicates_filtered > 0:
+        logger.info(f"Filtered out {duplicates_filtered} duplicate images (keeping only best from each group)")
     
     # Select photos using tiered system
     logger.info("Selecting photos for delivery...")
